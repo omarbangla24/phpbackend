@@ -1,0 +1,13 @@
+<?php
+if($page=="create-categorie"){
+	$found=include("pages/ui/categorie/create_categorie.php");
+}elseif($page=="edit-categorie"){
+	$found=include("pages/ui/categorie/edit_categorie.php");
+}elseif($page=="manage-categorie"){
+	$found=include("pages/ui/categorie/manage_categorie.php");
+}elseif($page=="details-categorie"){
+	$found=include("pages/ui/categorie/details_categorie.php");
+}elseif($page=="view-categorie"){
+	$found=include("pages/ui/categorie/view_categorie.php");
+}
+?>

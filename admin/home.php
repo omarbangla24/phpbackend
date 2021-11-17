@@ -8,6 +8,8 @@ require_once("db_config.php");
 require_once("library/helper.php");
 require_once("library/classes/role.class.php");
 require_once("library/classes/user.class.php");
+require_once("library/classes/product.class.php");
+require_once("library/classes/category.class.php");
 
 ?>
 

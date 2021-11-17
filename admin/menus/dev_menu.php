@@ -1,6 +1,6 @@
 <li class="nav-item">
             <a href="#" class="nav-link">
-              <i class="nav-icon fa fa-wrench"></i>
+              <i class="nav-icon fa fa-code"></i>
               <p>
                 Developer
                 <i class="right fas fa-angle-left"></i>

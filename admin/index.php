@@ -33,6 +33,7 @@ if(isset($_POST["btnSignIn"])){
   <link rel="stylesheet" href="asset/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
   <!-- Theme style -->
   <link rel="stylesheet" href="asset/dist/css/adminlte.min.css">
+  <script src="https://use.fontawesome.com/08cee93404.js"></script>
 </head>
 <body class="hold-transition login-page">
 <div class="login-box">

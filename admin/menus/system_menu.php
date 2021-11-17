@@ -1,6 +1,6 @@
 <li class="nav-item">
             <a href="#" class="nav-link">
-              <i class="nav-icon fas fa-book"></i>
+              <i class="nav-icon fas fa-cog"></i>
               <p>
                 System
                 <i class="fas fa-angle-left right"></i>
@@ -45,7 +45,7 @@
               </li>
               <li class="nav-item">
                 <a href="logout.php" class="nav-link">
-                  <i class="fas fa-sign-out-alt"></i>
+                  <i class="fas fa-circle nav-icon"></i>
                   <p>Sign Out</p>
                 </a>
               </li>

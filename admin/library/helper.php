@@ -49,12 +49,14 @@
 
 // Form Functions
    function select_field($config){
+    global $db; 
    $config["value"]=isset($config["value"])?$config["value"]:""; 
-   global $db; 
- 
+   $id=isset($config["value_column"])?$config["value_column"]:"id";  
+   $name=isset($config["display_column"])?$config["display_column"]:"name";  
+
    $ucname=ucfirst($config["name"]);
    
-   $result=$db->query("select id,name from {$config["table"]}");
+   $result=$db->query("select $id,$name from {$config["table"]}");
    $html="<div class='form-group row'>";
    $html.="<label class='col-sm-2 col-form-label'>{$config["label"]}</label>";
    $html.="<div class='col-sm-10'>"; 
@@ -250,15 +252,18 @@
     return $text;
   }
 
+ 
 
 // Dev Functions
-   function generate_code($table){   
+   function generate_code($table,$module="ui"){   
 
-    define("PAGE_PATH","pages/ui");
+    define("PAGE_PATH","pages/$module");
     define("CLASS_PATH","library/classes");  
     define("TEMPLATE_PATH","library/template");
+    define("PLACEHOLDER_PATH","placeholders");
+    define("MENU_PATH","menus");
   
-     global $db;//=new mysqli("localhost","root","","test");  
+     global $db;//=new mysqli("localhost","root","","test");
   
      $result=$db->query("desc $table");   
   
@@ -266,6 +271,8 @@
      $obj=strtolower($class_name);
   
      $code="<?php".PHP_EOL;
+
+     //------------Create Class----------//
      $code.="class $class_name{".PHP_EOL;
     
      $parameters="";
@@ -280,45 +287,62 @@
      $inputs="";
      $inputs_new="";
      $details="";
+
+     $setter_functions="";
+     $getter_functions="";
   
-     //add properties
+     
     while(list($name,$type)=$result->fetch_row()){
+
+      //---------------Create Class Properties-------------
       $code.="\tpublic \$$name".";".PHP_EOL;
+
       $parameters.="\$_$name,";
       $init.="\t\t\$this->$name=\$_$name;".PHP_EOL;
+
       if($name!="id"){
-       $ucname=ucfirst($name);
-       
-      // if(str_contains($name,"_id")){ 
-      if (strpos($name, '_id') !== false) { 
-         $rtrim=rtrim($name,"_id")."s";  
-         $ucrtrim=ucfirst(rtrim($name,"_id"));  
-  
-         $inputs.="\$html.=select_field([\"label\"=>\"$ucrtrim\",\"name\"=>\"cmb$ucrtrim\",\"table\"=>\"$rtrim\",\"value\"=>\$obj->$name]);".PHP_EOL;  
-         $inputs_new.="\$html.=select_field([\"label\"=>\"$ucrtrim\",\"name\"=>\"cmb$ucrtrim\",\"table\"=>\"$rtrim\"]);".PHP_EOL;  
-         $superglobal="cmb".ucfirst($ucrtrim);  
-  
-       }else{
-         $superglobal="txt".ucfirst($name);  
-         $inputs.="\$html.=input_field([\"label\"=>\"$ucname\",\"name\"=>\"txt$ucname\",\"value\"=>\$obj->$name]);".PHP_EOL;  
-         $inputs_new.="\$html.=input_field([\"label\"=>\"$ucname\",\"name\"=>\"txt$ucname\"]);".PHP_EOL;
-  
-       }
-       
-  
-       $fields.="$name,";
-       $values.="'\$this->$name',";
-       $set.="$name='\$this->$name',";
-       $vars.="\$$name,";
-           
-       $superglobals.="\t\$$name=\$_POST[\"{$superglobal}\"];".PHP_EOL;
+        $ucname=ucfirst($name);
+        
+        // if(str_contains($name,"_id")){ 
+        if (strpos($name, '_id') !== false) { 
+          $rtrim=rtrim($name,"_id")."s";  
+          $ucrtrim=ucfirst(rtrim($name,"_id"));  
+    
+          $inputs.="\$html.=select_field([\"label\"=>\"$ucrtrim\",\"name\"=>\"cmb$ucrtrim\",\"table\"=>\"$rtrim\",\"value\"=>\$obj->$name]);".PHP_EOL;  
+          $inputs_new.="\$html.=select_field([\"label\"=>\"$ucrtrim\",\"name\"=>\"cmb$ucrtrim\",\"table\"=>\"$rtrim\"]);".PHP_EOL;  
+          $superglobal="cmb".ucfirst($ucrtrim);  
+    
+        }else{
+          $superglobal="txt".ucfirst($name);  
+          $inputs.="\$html.=input_field([\"label\"=>\"$ucname\",\"name\"=>\"txt$ucname\",\"value\"=>\$obj->$name]);".PHP_EOL;  
+          $inputs_new.="\$html.=input_field([\"label\"=>\"$ucname\",\"name\"=>\"txt$ucname\"]);".PHP_EOL;
+    
+        }
+      
+    
+        $fields.="$name,";
+        $values.="'\$this->$name',";
+        $set.="$name='\$this->$name',";
+        $vars.="\$$name,";
+            
+        $superglobals.="\t\$$name=\$_POST[\"{$superglobal}\"];".PHP_EOL;
       }
+
+      $setter_functions.="\tpublic function set_$name(\$$name){".PHP_EOL;
+      $setter_functions.="\t\t\$this->$name=\$$name;".PHP_EOL;
+      $setter_functions.="\t}".PHP_EOL.PHP_EOL;
+
+
+      $getter_functions.="\tpublic function get_$name(){".PHP_EOL;
+      $getter_functions.="\t\treturn \$this->$name;".PHP_EOL;
+      $getter_functions.="\t}".PHP_EOL.PHP_EOL;
+
   
       $table_heads.="<th>".ucfirst($name)."</th>";
       $table_data.="<td>\$$name</td>";
       $details.="<tr><th>".ucfirst($name)."</th><td>\$obj->$name</td></tr>".PHP_EOL;
      
-    }
+    }//end while
    
     $code.="".PHP_EOL;
     //remove comma
@@ -328,39 +352,90 @@
     $set=rtrim($set,",");
     $vars=rtrim($vars,",");
     
-    //add constructor 
+    //--------------------Create class constructor --------------
   
     $code.="\tfunction __construct($parameters){".PHP_EOL;
     $code.=$init;
     $code.="\t}".PHP_EOL.PHP_EOL;
-  
-   //CRUD functions
+
+   //----Setter functions-----------//
+   $code.=$setter_functions;
+
+   //-----Getter functions---------//
+   $code.=$getter_functions;
+
+   //---------CRUD functions---------
    
+   //--------------Get Last Id--------------
     $code.="\tstatic function get_last_id(){".PHP_EOL;
     $code.="\t\tglobal \$db;".PHP_EOL;  
     $code.="\t\t\$db->query(\"select max(id) from $table\");".PHP_EOL;
     $code.="\t\tlist(\$last_id)=\$result->fetch_row();".PHP_EOL;
     $code.="\t\treturn \$last_id;".PHP_EOL;
     $code.="\t}".PHP_EOL.PHP_EOL;
-  
-     $code.="\tfunction save(){".PHP_EOL;
+  //------------------Save---------------------
+     $code.="\tfunction save(\$file=\"\",\$path=\"img\"){".PHP_EOL;
      $code.="\t\tglobal \$db;".PHP_EOL;
      $code.="\t\t\$db->query(\"insert into $table($fields)values($values)\");".PHP_EOL;
+
+     $code.="\t\tif(is_array(\$file)){".PHP_EOL;
+     $code.="\t\t\t\$ext=pathinfo(\$file[\"name\"],PATHINFO_EXTENSION);".PHP_EOL;      
+		 $code.="\t\t\t\$size=\$file[\"size\"]/1024;".PHP_EOL;
+		 $code.="\t\t\t\$type=\$file[\"type\"];".PHP_EOL;     
+     $code.="\t\t\tif(\$type==\"image/png\" || \$type==\"image/jpeg\"){".PHP_EOL;   
+     $code.="\t\t\t\tif(\$size<=1000){".PHP_EOL;
+
+     $code.="\t\t\t\t\t\$name=slugify(\$file[\"name\"]);".PHP_EOL;
+     $code.="\t\t\t\t\t//\$name=slugify(\$this->name);".PHP_EOL;
+
+      $code.="\t\t\t\t\tmove_uploaded_file(\$file[\"tmp_name\"],\"\$path/{\$name}.{\$ext}\");".PHP_EOL;
+      $code.="\t\t\t\t}else{".PHP_EOL;
+      $code.="\t\t\t\t\treturn -2;".PHP_EOL;
+      $code.="\t\t\t\t}".PHP_EOL; 
+
+     $code.="\t\t\t}else{".PHP_EOL;
+     $code.="\t\t\t\treturn -1;".PHP_EOL;
+     $code.="\t\t\t}".PHP_EOL; 
+     $code.="\t\t}".PHP_EOL;
+
      $code.="\t\treturn \$db->insert_id;".PHP_EOL;
      $code.="\t}".PHP_EOL.PHP_EOL;  
-     
-     $code.="\tfunction update(){".PHP_EOL;
+
+   //--------------------Update--------------  
+     $code.="\tfunction update(\$file=\"\",\$path=\"img\"){".PHP_EOL;
      $code.="\t\tglobal \$db;".PHP_EOL;
      $field="id";
      $code.="\t\t\$db->query(\"update $table set $set where $field='\$this->$field'\");".PHP_EOL;
+   
+     $code.="\t\tif(is_array(\$file)){".PHP_EOL;
+      $code.="\t\t\t\$ext=pathinfo(\$file[\"name\"],PATHINFO_EXTENSION);".PHP_EOL;      
+      $code.="\t\t\t\$size=\$file[\"size\"]/1024;".PHP_EOL;
+      $code.="\t\t\t\$type=\$file[\"type\"];".PHP_EOL;
+      $code.="\t\t\tif(\$type==\"image/png\" || \$type==\"image/jpeg\"){".PHP_EOL;
+     
+      $code.="\t\t\t\tif(\$size<=1000){".PHP_EOL;
+      $code.="\t\t\t\t\t\$name=slugify(\$file[\"name\"]);".PHP_EOL;
+      $code.="\t\t\t\t\t//\$name=slugify(\$this->name);".PHP_EOL;
+      $code.="\t\t\t\t\tmove_uploaded_file(\$file[\"tmp_name\"],\"\$path/{\$name}.{\$ext}\");".PHP_EOL;
+       
+       
+       $code.="\t\t\t\t}else{".PHP_EOL;
+       $code.="\t\t\t\t\treturn -2;".PHP_EOL;
+       $code.="\t\t\t\t}".PHP_EOL; 
+ 
+      $code.="\t\t\t}else{".PHP_EOL;
+      $code.="\t\t\t\treturn -1;".PHP_EOL;
+      $code.="\t\t\t}".PHP_EOL; 
+      $code.="\t\t}".PHP_EOL;
+     
      $code.="\t}".PHP_EOL.PHP_EOL;
-  
+  //----------------------Delete--------------
      $code.="\tstatic function delete(\$id){".PHP_EOL;
      $code.="\t\tglobal \$db;".PHP_EOL;
      $code.="\t\t\$db->query(\"delete from $table where id='\$id'\");".PHP_EOL;
      $code.="\t}".PHP_EOL.PHP_EOL;  
      
-  
+  //---------------------Get_----------------
      $code.="\tstatic function get_$obj(\$id){".PHP_EOL;
      $code.="\t\tglobal \$db;".PHP_EOL;
      $code.="\t\t\$result=\$db->query(\"select $fields from $table where id='\$id'\");".PHP_EOL;
@@ -390,7 +465,7 @@
      $code.="\t\t\$html.=\"<tr>$table_heads</tr>\";".PHP_EOL;
      $code.="\t\twhile(list(\$id,$vars)=\$result->fetch_row()){".PHP_EOL;
   
-     $code.="\t\t\t\$action_buttons=\"<div class='clearfix'>\";".PHP_EOL;
+     $code.="\t\t\t\$action_buttons=\"<div class='clearfix' style='display:flex;'>\";".PHP_EOL;
      $tmp_name=str_replace("_","-",$obj);
      $code.="\t\t\t\$action_buttons.=action_button([\"id\"=>\$id,\"name\"=>\"Details\",\"value\"=>\"Detials\",\"class\"=>\"info\",\"url\"=>\"details-$tmp_name\"]);".PHP_EOL;   
      $code.="\t\t\t\$action_buttons.=action_button([\"id\"=>\$id,\"name\"=>\"Edit\",\"value\"=>\"Edit\",\"class\"=>\"primary\",\"url\"=>\"edit-$tmp_name\"]);".PHP_EOL;      
@@ -473,12 +548,15 @@
   $code="<?php".PHP_EOL;
   $code.="if(isset(\$_POST[\"btnCreate\"])){".PHP_EOL.PHP_EOL;
   $code.="\t".$superglobals.PHP_EOL;
+  $code.="\t//\$file=\$_FILES[\"file\"];".PHP_EOL;
+  $code.="\t//\$ext=pathinfo(\$file[\"name\"],PATHINFO_EXTENSION);".PHP_EOL;
+  $code.="\t//\$photo=slugify(\$name).\".\".\$ext;".PHP_EOL;
   $code.="\t\$obj=new $class_name(\"\",$vars);".PHP_EOL;
   $code.="\t\$obj->save();".PHP_EOL;
   $code.="}".PHP_EOL;
   $code.="?>".PHP_EOL;
   $code.=str_replace("Blank Page","Create $class_name",file_get_contents(TEMPLATE_PATH."/create_header.php"));
-  $code.="<form class='form-horizontal' action='create-$obj' method='post'>";
+  $code.="<form class='form-horizontal' action='create-$obj' method='post' enctype='multipart/form-data'>";
   $code.="<div class='card-header'>".PHP_EOL;
  
   $ext_table=str_replace("_","-",$obj);
@@ -504,7 +582,7 @@
    
   file_put_contents(PAGE_PATH."/$obj/create_{$obj}.php",$code);
     
-  //------------------------Update Page-----------------------
+  //------------------------Edit Page-----------------------
   $code="";
   $code="<?php".PHP_EOL;
   $code.="if(isset(\$_POST[\"btnEdit\"])){".PHP_EOL;
@@ -514,13 +592,16 @@
   $code.="if(isset(\$_POST[\"btnUpdate\"])){".PHP_EOL;
   $code.="\t\${$obj}_id=\$_POST[\"txtId\"];".PHP_EOL;
   $code.="\t".$superglobals.PHP_EOL;
+  $code.="\t//\$file=\$_FILES[\"file\"];".PHP_EOL;
+  $code.="\t//\$ext=pathinfo(\$file[\"name\"],PATHINFO_EXTENSION);".PHP_EOL;
+  $code.="\t//\$photo=slugify(\$name).\".\".\$ext;".PHP_EOL;
   $code.="\t\$obj=new $class_name(\${$obj}_id,$vars);".PHP_EOL;
   $code.="\t\$obj->update();".PHP_EOL;
   
   $code.="}".PHP_EOL;
   $code.="?>".PHP_EOL;
-  $code.=str_replace("Blank Page","Update $class_name",file_get_contents(TEMPLATE_PATH."/update_header.php"));
-  $code.="<form class='form-horizontal' action='edit-$obj' method='post'>";
+  $code.=str_replace("Blank Page","Update $class_name",file_get_contents(TEMPLATE_PATH."/edit_header.php"));
+  $code.="<form class='form-horizontal' action='edit-$obj' method='post' enctype='multipart/form-data'>";
   $code.="<div class='card-header'>".PHP_EOL;
   $code.="\t\t\t\t<a href='manage-{$obj}' class='btn btn-success'>Manage $class_name</a>".PHP_EOL;
   $code.="\t\t\t</div>".PHP_EOL;
@@ -541,10 +622,10 @@
   $code.="\t\t\t</div>".PHP_EOL;
   $code.="</form>";
   
-  $code.=file_get_contents(TEMPLATE_PATH."/update_footer.php");
-   file_put_contents(PAGE_PATH."/$obj/update_{$obj}.php",$code);
+  $code.=file_get_contents(TEMPLATE_PATH."/edit_footer.php");
+   file_put_contents(PAGE_PATH."/$obj/edit_{$obj}.php",$code);
 
-//------------------Details Page------------------//
+//------------------ Details Page ------------------//
 
 $code="";
 $code="<?php".PHP_EOL;
@@ -577,7 +658,43 @@ $code.="\t\t\t</div>".PHP_EOL;
 $code.=file_get_contents(TEMPLATE_PATH."/details_footer.php");
  file_put_contents(PAGE_PATH."/$obj/details_{$obj}.php",$code);
 
-  
+
+
+ //------------- Create Placeholder ------------------//
+
+
+$code="<?php".PHP_EOL;
+
+$code.="if(\$page==\"create-$obj\"){".PHP_EOL;
+$code.="\t\$found=include(\"".PAGE_PATH."/$obj/create_$obj.php\");".PHP_EOL; 
+$code.="}elseif(\$page==\"edit-$obj\"){".PHP_EOL;
+$code.="\t\$found=include(\"".PAGE_PATH."/$obj/edit_$obj.php\");".PHP_EOL; 
+$code.="}elseif(\$page==\"manage-$obj\"){".PHP_EOL;
+$code.="\t\$found=include(\"".PAGE_PATH."/$obj/manage_$obj.php\");".PHP_EOL; 
+$code.="}elseif(\$page==\"details-$obj\"){".PHP_EOL;
+$code.="\t\$found=include(\"".PAGE_PATH."/$obj/details_$obj.php\");".PHP_EOL; 
+$code.="}elseif(\$page==\"view-$obj\"){".PHP_EOL;
+$code.="\t\$found=include(\"".PAGE_PATH."/$obj/view_$obj.php\");".PHP_EOL; 
+$code.="}".PHP_EOL;
+$code.="?>".PHP_EOL;
+file_put_contents(PLACEHOLDER_PATH."/{$obj}_placeholder.php",$code);
+
+//--------------------- Create Menu -----------------//
+
+$code="<li class=\"nav-item\">".PHP_EOL;
+$code.="\t<a href=\"#\" class=\"nav-link\">".PHP_EOL;
+$code.="\t\t<i class=\"nav-icon fa fa-wrench\"></i>".PHP_EOL;
+$code.="\t\t\t<p>".ucfirst($obj)." <i class=\"right fas fa-angle-left\"></i></p>".PHP_EOL;
+$code.="\t</a>".PHP_EOL;
+$code.="\t<ul class=\"nav nav-treeview\">".PHP_EOL;
+$code.="\t\t<li class=\"nav-item\">".PHP_EOL;
+$code.="<a href=\"manage-$obj\" class=\"nav-link\"> <i class=\"far fa-circle nav-icon\"></i><p>Manage ".ucfirst($obj)."</p></a>".PHP_EOL;
+$code.="\t\t</li>".PHP_EOL;
+$code.="\t</ul>".PHP_EOL;
+$code.="</li>".PHP_EOL;
+
+file_put_contents(MENU_PATH."/{$obj}_menu.php",$code);
+
 }
  
  
